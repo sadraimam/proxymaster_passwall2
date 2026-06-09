@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ProxyMaster</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <h1>ProxyMaster</h1>
+        <div id="login-section">
+            <div class="input-group">
+                <input type="text" id="email" placeholder="Email">
+            </div>
+            <div class="input-group">
+                <input type="password" id="password" placeholder="Password">
+            </div>
+            <button onclick="login()">Login to Xboard</button>
+        </div>
+
+        <div id="stats" style="display:none">
+            <div class="stats-card">
+                <p>Status: <span id="status-text" class="status-off">Checking...</span></p>
+                <p>Traffic Usage: <span id="usage">0</span> GB</p>
+            </div>
+            <button id="toggle-btn" onclick="togglePasswall()">Toggle Passwall</button>
+            <button class="secondary" onclick="location.reload()">Logout</button>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
