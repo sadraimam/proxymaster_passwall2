@@ -1,16 +1,21 @@
-const XBOARD_URL = "https://your-xboard-domain.com"; // CHANGE THIS
+const API_BASE_URL = "https://your-dashboard.com"; // CHANGE THIS
+const SYSTEM_MODE = "XBOARD"; // Options: "XBOARD", "V2BOARD"
 
 async function login() {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
 
     try {
-        // 1. Authenticate with Xboard
-        const res = await axios.post(`${XBOARD_URL}/api/v1/passport/auth/login`, { email, password });
-        const token = res.data.data.auth_data;
+        // 1. Authenticate
+        const res = await axios.post(`${API_BASE_URL}/api/v1/passport/auth/login`, { email, password });
+        
+        // Xboard uses auth_data, older V2board might use token or auth_data
+        const token = SYSTEM_MODE === "XBOARD" 
+            ? res.data.data.auth_data 
+            : (res.data.data.token || res.data.data.auth_data);
 
-        // 2. Fetch User Info (Sub Link)
-        const info = await axios.get(`${XBOARD_URL}/api/v1/user/info`, {
+        // 2. Fetch User Info
+        const info = await axios.get(`${API_BASE_URL}/api/v1/user/info`, {
             headers: { 'Authorization': token }
         });
 
