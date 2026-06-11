@@ -69,13 +69,41 @@ async function updateStatus() {
         const statusText = document.getElementById('status-text');
         const toggleBtn = document.getElementById('toggle-btn');
 
-        statusText.innerText = enabled === "1" ? (running ? "Active" : "Starting...") : "Disabled";
+        statusText.innerText = enabled === "1" ? (running ? "Running" : "Starting...") : "Stopped";
         statusText.className = enabled === "1" ? "status-on" : "status-off";
         toggleBtn.innerText = enabled === "1" ? "Deactivate Passwall" : "Activate Passwall";
+        toggleBtn.className = enabled === "1" ? "secondary" : "primary-btn";
 
     } catch (e) {
         console.error("Failed to fetch status", e);
         document.getElementById('status-text').innerText = "Error fetching status";
+    }
+}
+
+async function checkConnect(id, url) {
+    const label = document.getElementById(`${id}-status`);
+    if (!label) return;
+
+    label.innerText = "Checking...";
+    label.className = "status-neutral";
+
+    try {
+        const res = await axios.get(`/cgi-bin/proxymaster-api?action=connect_check&url=${encodeURIComponent(url)}`);
+        const { use_time, http_code } = res.data;
+
+        if (use_time) {
+            label.innerText = `${use_time} ms`;
+            if (use_time < 500) label.className = "green";
+            else if (use_time < 1500) label.className = "yellow";
+            else label.className = "red";
+        } else {
+            label.innerText = "Error";
+            label.className = "red";
+        }
+    } catch (e) {
+        console.error(`Check failed for ${id}`, e);
+        label.innerText = "Failed";
+        label.className = "red";
     }
 }
 

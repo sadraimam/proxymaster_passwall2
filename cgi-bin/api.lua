@@ -178,6 +178,34 @@ local function main_logic()
         local running = os.execute("pgrep -f 'sing-box|xray|v2ray|base_tcp' > /dev/null") == 0
         print(json.stringify({ enabled = enabled, running = running, config_exists = config_exists, token = token }))
 
+    elseif action == "connect_check" then
+        local target_url = params["url"]
+        if not target_url or target_url == "" then
+            print(json.stringify({ error = "no url provided" }))
+            return
+        end
+
+        -- Use curl to measure time_total. -o /dev/null ignores body, -s is silent, -k allows insecure
+        local curl_format = '{"use_time": %{time_total}, "http_code": %{http_code}}'
+        local cmd = string.format("curl -L -k -s -o /dev/null -w %s --max-time 5 %s", 
+            shell_escape(curl_format), 
+            shell_escape(target_url)
+        )
+
+        local pipe = io.popen(cmd)
+        if pipe then
+            local result = pipe:read("*a")
+            pipe:close()
+            local success, parsed = pcall(json.parse, result)
+            if success and parsed then
+                -- time_total is in seconds, convert to ms
+                parsed.use_time = math.floor(parsed.use_time * 1000)
+                print(json.stringify(parsed))
+            else
+                print(json.stringify({ error = "check failed" }))
+            end
+        end
+
     elseif action == "toggle" then
         local current = uci:get("passwall2", "@global[0]", "enabled")
         local new_val = (current == "1") and "0" or "1"
