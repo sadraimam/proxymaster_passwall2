@@ -44,6 +44,7 @@ async function login() {
         
         // 4. Reload status and show dashboard
         await updateStatus();
+        setTimeout(loadNodeOptions, 5000);
     } catch (e) {
         // Improved error logging
         const errorDetail = e.response?.data?.message || e.message || "Unknown error";
@@ -64,6 +65,7 @@ async function updateStatus() {
         if (config_exists) {
             showDashboard();
             fetchUsage(token);
+            loadNodeOptions();
         }
 
         const statusText = document.getElementById('status-text');
@@ -129,6 +131,67 @@ async function togglePasswall() {
     updateStatus();
 }
 
+async function loadNodeOptions() {
+    const select = document.getElementById('node-select');
+    if (!select) return;
+
+    select.disabled = true;
+    select.innerHTML = '<option value="">Loading nodes...</option>';
+
+    try {
+        const res = await axios.get('/cgi-bin/proxymaster-api?action=list_nodes');
+        const nodes = res.data?.nodes || [];
+        const currentNode = res.data?.current_node || "";
+
+        if (!nodes.length) {
+            select.innerHTML = '<option value="">No subscription nodes found</option>';
+            return;
+        }
+
+        select.innerHTML = nodes.map((node) => {
+            const selected = node.id === currentNode ? "selected" : "";
+            const label = node.remarks || node.id;
+            return `<option value="${escapeHtml(node.id)}" ${selected}>${escapeHtml(label)}</option>`;
+        }).join("");
+    } catch (e) {
+        console.error("Failed to load nodes", e);
+        select.innerHTML = '<option value="">Failed to load nodes</option>';
+    } finally {
+        select.disabled = false;
+    }
+}
+
+async function selectNode(nodeId) {
+    if (!nodeId) return;
+
+    const select = document.getElementById('node-select');
+    if (select) select.disabled = true;
+
+    try {
+        const res = await axios.get(`/cgi-bin/proxymaster-api?action=set_shunt_node&node=${encodeURIComponent(nodeId)}`);
+        if (res.data && res.data.success === false) {
+            throw new Error(res.data.error || "Failed to set node.");
+        }
+    } catch (e) {
+        console.error("Failed to set shunt node", e);
+        alert(`Failed to set node: ${e.message || "Unknown error"}`);
+        loadNodeOptions();
+        return;
+    } finally {
+        if (select) select.disabled = false;
+    }
+}
+
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
+
 async function logout() {
     try {
         const res = await axios.get('/cgi-bin/proxymaster-api?action=logout');
@@ -154,6 +217,7 @@ async function updateNodes() {
         if (res.data && res.data.success === false) {
             throw new Error(res.data.error || "Passwall2 update failed.");
         }
+        setTimeout(loadNodeOptions, 5000);
         alert("Node update triggered. Nodes will appear in Passwall2 shortly.");
     } catch (e) {
         console.error("Failed to update nodes", e);

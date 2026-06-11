@@ -148,6 +148,49 @@ local function delete_subscription_nodes(add_from)
     return #nodes_to_delete
 end
 
+local function get_proxy_nodes(group_name)
+    local nodes = {}
+
+    uci:foreach("passwall2", "nodes", function(node)
+        if node.group == group_name or node.add_from == group_name then
+            nodes[#nodes + 1] = {
+                id = node[".name"],
+                remarks = node.remarks or node[".name"],
+                protocol = node.protocol or "",
+                type = node.type or ""
+            }
+        end
+    end)
+
+    return nodes
+end
+
+local function get_shunt_node_id()
+    local global_node = uci:get("passwall2", "@global[0]", "node")
+    if global_node and uci:get("passwall2", global_node, "protocol") == "_shunt" then
+        return global_node
+    end
+
+    local shunt_node = nil
+    uci:foreach("passwall2", "nodes", function(node)
+        if not shunt_node and node.protocol == "_shunt" then
+            shunt_node = node[".name"]
+        end
+    end)
+
+    return shunt_node
+end
+
+local function proxy_node_exists(node_id, group_name)
+    local exists = false
+    uci:foreach("passwall2", "nodes", function(node)
+        if node[".name"] == node_id and (node.group == group_name or node.add_from == group_name) then
+            exists = true
+        end
+    end)
+    return exists
+end
+
 local function truncate_subscription_nodes(add_from)
     if file_exists("/usr/share/passwall2/subscribe.lua") then
         local cmd = string.format(
@@ -330,6 +373,49 @@ local function main_logic()
             os.execute("logger -t ProxyMaster 'ERROR: No valid Passwall2 subscription script found.'")
             print(json.stringify({ success = false, error = trigger_error }))
         end
+
+    elseif action == "list_nodes" then
+        local shunt_node = get_shunt_node_id()
+        local current_node = nil
+        if shunt_node then
+            current_node = uci:get("passwall2", shunt_node, "default_node")
+        end
+
+        print(json.stringify({
+            success = true,
+            nodes = get_proxy_nodes("ProxyMaster"),
+            shunt_node = shunt_node,
+            current_node = current_node
+        }))
+
+    elseif action == "set_shunt_node" then
+        local node_id = params["node"]
+        if not node_id or node_id == "" then
+            print(json.stringify({ success = false, error = "missing node" }))
+            return
+        end
+
+        if not proxy_node_exists(node_id, "ProxyMaster") then
+            print(json.stringify({ success = false, error = "selected node is not a ProxyMaster node" }))
+            return
+        end
+
+        local shunt_node = get_shunt_node_id()
+        if not shunt_node then
+            print(json.stringify({ success = false, error = "shunt node not found" }))
+            return
+        end
+
+        uci:set("passwall2", shunt_node, "default_node", node_id)
+        local commit_status = uci:commit("passwall2")
+        if commit_status then
+            os.execute("/etc/init.d/passwall2 restart &")
+        end
+        print(json.stringify({
+            success = commit_status and true or false,
+            shunt_node = shunt_node,
+            selected_node = node_id
+        }))
 
     elseif action == "logout" then
         local truncated, log_file = truncate_subscription_nodes("ProxyMaster")

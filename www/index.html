@@ -62,6 +62,13 @@
                 Traffic Usage: <strong id="usage">0</strong> GB
             </div>
 
+            <div class="node-select-panel">
+                <label for="node-select">Shunt Default Node</label>
+                <select id="node-select" onchange="selectNode(this.value)">
+                    <option value="">Loading nodes...</option>
+                </select>
+            </div>
+
             <button id="toggle-btn" onclick="togglePasswall()">Toggle Passwall</button>
             <button id="update-btn" class="secondary" onclick="updateNodes()">Update Nodes</button>
             <button class="secondary" onclick="logout()">Logout</button>

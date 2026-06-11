@@ -40,6 +40,16 @@ input {
     box-sizing: border-box;
 }
 
+select {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    background: #0f172a;
+    color: white;
+    box-sizing: border-box;
+}
+
 button {
     width: 100%;
     padding: 12px;
@@ -99,6 +109,25 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     border-radius: 8px;
     margin-bottom: 20px;
     font-size: 0.9rem;
+}
+
+.node-select-panel {
+    background: var(--card-bg);
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.node-select-panel label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
 }
 
 .status-on, .green { color: var(--success); }
