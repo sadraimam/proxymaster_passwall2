@@ -9,7 +9,7 @@ This repo is a small OpenWrt companion UI for ProxyMaster and Passwall2. It depl
 - Check Passwall2 status.
 - Toggle Passwall2 on/off.
 - Trigger a node/subscription update.
-- Log out by deleting the stored ProxyMaster UCI section.
+- Log out by deleting the stored ProxyMaster UCI section, removing ProxyMaster-imported nodes, and disabling Passwall2.
 
 ## File Map
 
@@ -67,12 +67,26 @@ The Lua backend routes based on the `action` query parameter:
   - Accepts `link` and optional `token` query parameters.
   - Creates/updates the `passwall2.ProxyMaster` UCI section as `subscribe_list`.
   - Stores `remark`, `url`, and `token`.
+  - Enables subscription processing and TLS-insecure compatibility fields.
+  - Sets Passwall2 auto-update loop mode for every 24 hours with:
+    - `week_update='8'`
+    - `interval_update='24'`
+  - Also writes compatibility interval fields (`auto_update_time`, `auto_update_interval`, `interval`) as `24`.
+  - Triggers a subscription import after saving.
 
 - `update_nodes`
-  - Runs `lua /usr/share/passwall2/subscribe.lua ProxyMaster > /dev/null 2>&1 &`.
+  - Reuses backend subscription trigger detection.
+  - Known trigger forms:
+    - `/usr/share/passwall2/api.lua subscribe_manual ProxyMaster`
+    - `/usr/share/passwall2/node_subscribe.lua ProxyMaster`
+    - `/usr/share/passwall2/subscribe.lua start ProxyMaster`
+  - `subscribe.lua` requires `start` as the first argument; `lua subscribe.lua ProxyMaster` does not enter the update path on observed builds.
 
 - `logout`
-  - Deletes the `passwall2.ProxyMaster` UCI section and commits.
+  - Runs `lua /usr/share/passwall2/subscribe.lua truncate ProxyMaster` when available.
+  - Deletes remaining `nodes` sections where `group='ProxyMaster'` or `add_from='ProxyMaster'`.
+  - Deletes the `passwall2.ProxyMaster` subscription section.
+  - Sets `passwall2.@global[0].enabled='0'`, commits, and stops Passwall2.
 
 ## Frontend Flow
 
@@ -86,7 +100,23 @@ The Lua backend routes based on the `action` query parameter:
    ```
 
 5. It sends that link and token to `update_sub`.
-6. If config exists, the UI shows the dashboard and fetches usage via `proxy_info`.
+6. The backend saves the subscription and starts the Passwall2 subscription import.
+7. If config exists, the UI shows the dashboard and fetches usage via `proxy_info`.
+
+## Observed Passwall2 UCI Details
+
+From the target router's `uci show passwall2`:
+
+- `passwall2.ProxyMaster=subscribe_list`
+- Subscription scheduler loop mode is represented by `week_update='8'`.
+- Subscription loop interval is represented by `interval_update='24'`.
+- ProxyMaster-imported nodes may have:
+  - `add_mode='2'`
+  - `group='ProxyMaster'`
+  - no `add_from` field
+- Because `add_from` may be absent, cleanup must match both `group='ProxyMaster'` and `add_from='ProxyMaster'`.
+- Passwall2 can handle default node becoming `(not set)` by itself; avoid special handling unless a concrete bug appears.
+- The user can SSH into the router and provide exact `uci show passwall2` or script output when Passwall2 behavior is unclear.
 
 ## Deployment Assumptions
 
@@ -115,7 +145,6 @@ The target is OpenWrt with:
 - Tokens are passed in query strings, which can appear in browser history, server logs, router logs, and referrers.
 - `curl -k` disables TLS certificate verification for dashboard calls.
 - `proxy_info` uses `Authorization: <token>` directly. Confirm whether the target dashboard expects a prefix such as `Bearer` for all supported systems.
-- [DONE] `update_nodes` reliability. (Added multi-path script detection for api.lua/node_subscribe.lua/subscribe.lua and aligned arguments with Passwall2 v26 subscribe_manual logic).
 
 ## Working Guidance
 

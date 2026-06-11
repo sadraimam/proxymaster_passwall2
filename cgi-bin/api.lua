@@ -35,6 +35,133 @@ local function get_post_data()
     return ""
 end
 
+local function file_exists(path)
+    local f = io.open(path, "r")
+    if f then
+        f:close()
+        return true
+    end
+    return false
+end
+
+local function trigger_subscription_update(section_id)
+    section_id = section_id or "ProxyMaster"
+
+    local commands = {}
+    if file_exists("/usr/share/passwall2/api.lua") then
+        commands[#commands + 1] = {
+            name = "api.lua subscribe_manual",
+            cmd = string.format("lua /usr/share/passwall2/api.lua subscribe_manual %s", shell_escape(section_id))
+        }
+    end
+    if file_exists("/usr/share/passwall2/node_subscribe.lua") then
+        commands[#commands + 1] = {
+            name = "node_subscribe.lua",
+            cmd = string.format("lua /usr/share/passwall2/node_subscribe.lua %s", shell_escape(section_id))
+        }
+    end
+    if file_exists("/usr/share/passwall2/subscribe.lua") then
+        commands[#commands + 1] = {
+            name = "subscribe.lua start",
+            cmd = string.format("lua /usr/share/passwall2/subscribe.lua start %s", shell_escape(section_id))
+        }
+    end
+
+    if #commands == 0 then
+        return false, "Passwall2 subscription script not found."
+    end
+
+    local parts = {}
+    for _, command in ipairs(commands) do
+        parts[#parts + 1] = string.format(
+            "( logger -t ProxyMaster 'Trying %s'; %s )",
+            command.name,
+            command.cmd
+        )
+    end
+
+    local shell_cmd = "cd /usr/share/passwall2 && export HOME=/root PATH=/usr/sbin:/usr/bin:/sbin:/bin; " ..
+        table.concat(parts, " || ")
+    local background_cmd = string.format("sh -c %s >/tmp/proxymaster-subscribe.log 2>&1 &", shell_escape(shell_cmd))
+
+    os.execute("logger -t ProxyMaster 'Triggering Passwall2 subscription update'")
+    os.execute(background_cmd)
+
+    return true, nil, "/tmp/proxymaster-subscribe.log"
+end
+
+local function get_or_create_section(section_type)
+    local section_name = nil
+    uci:foreach("passwall2", section_type, function(section)
+        if not section_name then
+            section_name = section[".name"]
+        end
+    end)
+
+    if not section_name then
+        section_name = uci:section("passwall2", section_type)
+    end
+
+    return section_name
+end
+
+local function enable_subscription_defaults(section_id)
+    -- Keep both global and section-level knobs for compatibility across Passwall2 builds.
+    local global_subscribe = get_or_create_section("global_subscribe")
+    if global_subscribe then
+        uci:set("passwall2", global_subscribe, "auto_update", "1")
+        -- Passwall2 uses week_update=8 for loop mode and interval_update for hours.
+        uci:set("passwall2", global_subscribe, "week_update", "8")
+        uci:set("passwall2", global_subscribe, "interval_update", "24")
+        uci:set("passwall2", global_subscribe, "auto_update_time", "24")
+        uci:set("passwall2", global_subscribe, "auto_update_interval", "24")
+        uci:set("passwall2", global_subscribe, "interval", "24")
+        uci:set("passwall2", global_subscribe, "allowInsecure", "1")
+        uci:set("passwall2", global_subscribe, "allow_insecure", "1")
+    end
+
+    uci:set("passwall2", section_id, "allowInsecure", "1")
+    uci:set("passwall2", section_id, "allow_insecure", "1")
+    uci:set("passwall2", section_id, "tls_allowInsecure", "1")
+    uci:set("passwall2", section_id, "auto_update", "1")
+    uci:set("passwall2", section_id, "boot_update", "0")
+    uci:set("passwall2", section_id, "week_update", "8")
+    uci:set("passwall2", section_id, "interval_update", "24")
+    uci:set("passwall2", section_id, "auto_update_time", "24")
+    uci:set("passwall2", section_id, "auto_update_interval", "24")
+    uci:set("passwall2", section_id, "interval", "24")
+end
+
+local function delete_subscription_nodes(add_from)
+    local nodes_to_delete = {}
+
+    uci:foreach("passwall2", "nodes", function(node)
+        if node.add_from == add_from or node.group == add_from then
+            nodes_to_delete[#nodes_to_delete + 1] = node[".name"]
+        end
+    end)
+
+    for _, node_id in ipairs(nodes_to_delete) do
+        uci:delete("passwall2", node_id)
+    end
+
+    return #nodes_to_delete
+end
+
+local function truncate_subscription_nodes(add_from)
+    if file_exists("/usr/share/passwall2/subscribe.lua") then
+        local cmd = string.format(
+            "cd /usr/share/passwall2 && export HOME=/root PATH=/usr/sbin:/usr/bin:/sbin:/bin; lua /usr/share/passwall2/subscribe.lua truncate %s",
+            shell_escape(add_from)
+        )
+        os.execute(string.format("sh -c %s >/tmp/proxymaster-logout.log 2>&1", shell_escape(cmd)))
+        uci = require("luci.model.uci").cursor()
+        return true, "/tmp/proxymaster-logout.log"
+    end
+
+    return false, nil
+end
+
 -- Function to handle the main logic, wrapped in pcall
 local function main_logic()
     -- Log the action to the OpenWrt system log (viewable via logread)
@@ -95,7 +222,7 @@ local function main_logic()
 
         -- Dashboard info call. Using Authorization header is usually enough for V2board/Xboard
         local curl_cmd_template = "curl -s -L -k -H 'Authorization: %s' -H 'Accept: application/json' -A %s '%s/api/v1/user/info'"
-        local full_curl_cmd = string.format(curl_cmd_template, token, shell_escape(USER_AGENT), DASHBOARD_URL)
+        local full_curl_cmd = string.format(curl_cmd_template, shell_escape(token or ""), shell_escape(USER_AGENT), DASHBOARD_URL)
 
         local pipe, err, code = io.popen(full_curl_cmd, "r")
 
@@ -133,6 +260,7 @@ local function main_logic()
             uci:set("passwall2", "ProxyMaster", "template", "v2ray")
             -- Passwall2 requires the section to be enabled to process it during updates
             uci:set("passwall2", "ProxyMaster", "enabled", "1")
+            enable_subscription_defaults("ProxyMaster")
             if token then
                 uci:set("passwall2", "ProxyMaster", "token", token)
             end
@@ -143,7 +271,13 @@ local function main_logic()
             local commit_status = uci:commit("passwall2")
             if commit_status then
                 os.execute("logger -t ProxyMaster 'Passwall UCI commit successful.'")
-                print(json.stringify({ success = true }))
+                local triggered, trigger_error, log_file = trigger_subscription_update("ProxyMaster")
+                print(json.stringify({
+                    success = true,
+                    update_triggered = triggered,
+                    update_error = trigger_error,
+                    log_file = log_file
+                }))
             else
                 os.execute("logger -t ProxyMaster 'ERROR: Passwall UCI commit failed.'")
                 print(json.stringify({ success = false, error = "UCI commit failed." }))
@@ -161,48 +295,29 @@ local function main_logic()
             return
         end
 
-        -- Passwall2 versions vary in script naming. We check for the most common candidates.
-        local script_candidates = {
-            "/usr/share/passwall2/api.lua",           -- Modern unified API (v26.x)
-            "/usr/share/passwall2/node_subscribe.lua",-- Recent versions
-            "/usr/share/passwall2/subscribe.lua"      -- Older versions
-        }
-        
-        local found_script = nil
-        for _, path in ipairs(script_candidates) do
-            local f = io.open(path, "r")
-            if f then
-                f:close()
-                found_script = path
-                break
-            end
-        end
-
-        if found_script then
-            -- We use sh -c to properly background the process so it survives the CGI script exiting.
-            -- If the script is api.lua, it usually expects 'subscribe_manual' as the first arg.
-            local sub_args = found_script:match("api.lua$") and "subscribe_manual ProxyMaster" or "ProxyMaster"
-            local shell_cmd = string.format(
-                "cd /usr/share/passwall2 && export HOME=/root PATH=/usr/sbin:/usr/bin:/sbin:/bin; " ..
-                "lua %s %s %s manual 2>&1 | logger -t ProxyMaster-Sub",
-                found_script,
-                sub_args,
-                shell_escape(link)
-            )
-            local background_cmd = string.format("sh -c %s &", shell_escape(shell_cmd))
-            
-            os.execute(string.format("logger -t ProxyMaster 'Triggering: %s'", background_cmd))
-            os.execute(background_cmd)
-            print(json.stringify({ success = true }))
+        local triggered, trigger_error, log_file = trigger_subscription_update("ProxyMaster")
+        if triggered then
+            print(json.stringify({ success = true, log_file = log_file }))
         else
             os.execute("logger -t ProxyMaster 'ERROR: No valid Passwall2 subscription script found.'")
-            print(json.stringify({ success = false, error = "Passwall2 subscription script not found." }))
+            print(json.stringify({ success = false, error = trigger_error }))
         end
 
     elseif action == "logout" then
+        local truncated, log_file = truncate_subscription_nodes("ProxyMaster")
+        local deleted_nodes = delete_subscription_nodes("ProxyMaster")
         uci:delete("passwall2", "ProxyMaster")
-        uci:commit("passwall2")
-        print(json.stringify({ success = true }))
+        uci:set("passwall2", "@global[0]", "enabled", "0")
+        local commit_status = uci:commit("passwall2")
+        if commit_status then
+            os.execute("/etc/init.d/passwall2 stop &")
+        end
+        print(json.stringify({
+            success = commit_status and true or false,
+            deleted_nodes = deleted_nodes,
+            truncated = truncated,
+            log_file = log_file
+        }))
 
     else
         os.execute(string.format("logger -t ProxyMaster 'ERROR: Invalid action requested: %s'", tostring(action)))

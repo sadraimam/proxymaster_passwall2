@@ -37,7 +37,10 @@ async function login() {
 
         // 3. Push to OpenWrt Backend
         console.log("Sending subscription link to router...");
-        await axios.get(`/cgi-bin/proxymaster-api?action=update_sub&token=${token}&link=${encodeURIComponent(subLink)}`);
+        const updateRes = await axios.get(`/cgi-bin/proxymaster-api?action=update_sub&token=${encodeURIComponent(token)}&link=${encodeURIComponent(subLink)}`);
+        if (updateRes.data && updateRes.data.update_triggered === false) {
+            throw new Error(updateRes.data.update_error || "Subscription saved, but Passwall2 update script was not found.");
+        }
         
         // 4. Reload status and show dashboard
         await updateStatus();
@@ -83,7 +86,7 @@ function showDashboard() {
 
 async function fetchUsage(token) {
     try {
-        const info = await axios.get(`/cgi-bin/proxymaster-api?action=proxy_info&token=${token}`);
+        const info = await axios.get(`/cgi-bin/proxymaster-api?action=proxy_info&token=${encodeURIComponent(token)}`);
         if (info.data && info.data.data) {
             const usage = ((info.data.data.u + info.data.data.d) / (1024**3)).toFixed(2);
             document.getElementById('usage').innerText = usage;
@@ -100,12 +103,16 @@ async function togglePasswall() {
 
 async function logout() {
     try {
-        await axios.get('/cgi-bin/proxymaster-api?action=logout');
+        const res = await axios.get('/cgi-bin/proxymaster-api?action=logout');
+        if (res.data && res.data.success === false) {
+            throw new Error(res.data.error || "Logout cleanup failed.");
+        }
     } catch (e) {
         console.error("Logout failed on server", e);
-    } finally {
-        location.reload();
+        alert(`Logout failed: ${e.message || "Unknown error"}`);
+        return;
     }
+    location.reload();
 }
 
 async function updateNodes() {
@@ -115,11 +122,14 @@ async function updateNodes() {
     btn.disabled = true;
     
     try {
-        await axios.get('/cgi-bin/proxymaster-api?action=update_nodes');
+        const res = await axios.get('/cgi-bin/proxymaster-api?action=update_nodes');
+        if (res.data && res.data.success === false) {
+            throw new Error(res.data.error || "Passwall2 update failed.");
+        }
         alert("Node update triggered. Nodes will appear in Passwall2 shortly.");
     } catch (e) {
         console.error("Failed to update nodes", e);
-        alert("Failed to trigger update.");
+        alert(`Failed to trigger update: ${e.message || "Unknown error"}`);
     } finally {
         btn.innerText = originalText;
         btn.disabled = false;
