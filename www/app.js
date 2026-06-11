@@ -57,15 +57,15 @@ async function login() {
     }
 }
 
-async function updateStatus() {
+async function updateStatus(isPolling = false) {
     try {
         const res = await axios.get('/cgi-bin/proxymaster-api?action=status');
         const { enabled, running, config_exists, token } = res.data;
         
         if (config_exists) {
             showDashboard();
-            fetchUsage(token);
-            loadNodeOptions();
+            if (!isPolling) fetchUsage(token);
+            if (!isPolling) loadNodeOptions();
         }
 
         const statusText = document.getElementById('status-text');
@@ -75,7 +75,7 @@ async function updateStatus() {
         statusText.className = enabled === "1" ? "status-on" : "status-off";
         toggleBtn.innerText = enabled === "1" ? "Deactivate Passwall" : "Activate Passwall";
         toggleBtn.className = enabled === "1" ? "secondary" : "primary-btn";
-
+        return res.data;
     } catch (e) {
         console.error("Failed to fetch status", e);
         document.getElementById('status-text').innerText = "Error fetching status";
@@ -127,8 +127,35 @@ async function fetchUsage(token) {
 }
 
 async function togglePasswall() {
-    await axios.get('/cgi-bin/proxymaster-api?action=toggle');
-    updateStatus();
+    try {
+        const res = await axios.get('/cgi-bin/proxymaster-api?action=toggle');
+        const targetEnabled = res.data.enabled;
+        // Update immediately to show transition state
+        await updateStatus();
+        
+        if (targetEnabled === "1") {
+            // Poll until enabled AND running
+            pollStatus(d => d.enabled === "1" && d.running === true);
+        } else {
+            // Poll until disabled
+            pollStatus(d => d.enabled === "0");
+        }
+    } catch (e) {
+        console.error("Toggle failed", e);
+        updateStatus();
+    }
+}
+
+async function pollStatus(predicate, maxAttempts = 15) {
+    if (maxAttempts <= 0) return;
+    setTimeout(async () => {
+        const data = await updateStatus(true);
+        if (data && predicate(data)) {
+            console.log("Target status reached. Polling stopped.");
+            return;
+        }
+        pollStatus(predicate, maxAttempts - 1);
+    }, 2000);
 }
 
 async function loadNodeOptions() {
@@ -161,17 +188,21 @@ async function loadNodeOptions() {
     }
 }
 
-async function selectNode(nodeId) {
+async function selectNode() {
+    const select = document.getElementById('node-select');
+    const nodeId = select ? select.value : null;
     if (!nodeId) return;
 
-    const select = document.getElementById('node-select');
-    if (select) select.disabled = true;
-
+    const btn = document.getElementById('set-node-btn');
     try {
+        if (select) select.disabled = true;
+        if (btn) btn.disabled = true;
         const res = await axios.get(`/cgi-bin/proxymaster-api?action=set_shunt_node&node=${encodeURIComponent(nodeId)}`);
         if (res.data && res.data.success === false) {
             throw new Error(res.data.error || "Failed to set node.");
         }
+        // Restarting via set_shunt_node also takes time to re-init core
+        pollStatus(d => d.enabled === "1" && d.running === true);
     } catch (e) {
         console.error("Failed to set shunt node", e);
         alert(`Failed to set node: ${e.message || "Unknown error"}`);
@@ -179,6 +210,7 @@ async function selectNode(nodeId) {
         return;
     } finally {
         if (select) select.disabled = false;
+        if (btn) btn.disabled = false;
     }
 }
 
@@ -209,7 +241,7 @@ async function logout() {
 async function updateNodes() {
     const btn = document.getElementById('update-btn');
     const originalText = btn.innerText;
-    btn.innerText = "Updating...";
+    btn.innerText = '...';
     btn.disabled = true;
     
     try {
@@ -218,7 +250,7 @@ async function updateNodes() {
             throw new Error(res.data.error || "Passwall2 update failed.");
         }
         setTimeout(loadNodeOptions, 5000);
-        alert("Node update triggered. Nodes will appear in Passwall2 shortly.");
+        console.log("Node update triggered successfully.");
     } catch (e) {
         console.error("Failed to update nodes", e);
         alert(`Failed to trigger update: ${e.message || "Unknown error"}`);

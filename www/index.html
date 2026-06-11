@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>ProxyMaster</title>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <link rel="stylesheet" href="style.css">
@@ -64,13 +65,16 @@
 
             <div class="node-select-panel">
                 <label for="node-select">Shunt Default Node</label>
-                <select id="node-select" onchange="selectNode(this.value)">
-                    <option value="">Loading nodes...</option>
-                </select>
+                <div class="control-row">
+                    <select id="node-select">
+                        <option value="">Loading nodes...</option>
+                    </select>
+                    <button id="set-node-btn" class="icon-btn primary-btn" onclick="selectNode()" title="Set Node">Set</button>
+                    <button id="update-btn" class="icon-btn secondary" onclick="updateNodes()" title="Update Nodes">Sync</button>
+                </div>
+                <button id="toggle-btn" onclick="togglePasswall()">Toggle Passwall</button>
             </div>
 
-            <button id="toggle-btn" onclick="togglePasswall()">Toggle Passwall</button>
-            <button id="update-btn" class="secondary" onclick="updateNodes()">Update Nodes</button>
             <button class="secondary" onclick="logout()">Logout</button>
         </div>
     </div>

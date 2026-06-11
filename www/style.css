@@ -130,6 +130,24 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     text-transform: uppercase;
 }
 
+.control-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.control-row select {
+    flex: 1;
+    min-width: 0; /* Prevents select from overflowing flex container */
+}
+
+.icon-btn {
+    width: auto !important;
+    padding: 0 15px !important;
+    margin-bottom: 0 !important;
+    font-size: 0.9rem;
+}
+
 .status-on, .green { color: var(--success); }
 .status-off, .red { color: var(--danger); }
 .status-neutral, .yellow { color: var(--warning); }
