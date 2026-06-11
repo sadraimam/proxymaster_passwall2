@@ -115,7 +115,7 @@ The target is OpenWrt with:
 - Tokens are passed in query strings, which can appear in browser history, server logs, router logs, and referrers.
 - `curl -k` disables TLS certificate verification for dashboard calls.
 - `proxy_info` uses `Authorization: <token>` directly. Confirm whether the target dashboard expects a prefix such as `Bearer` for all supported systems.
-- `update_nodes` assumes `/usr/share/passwall2/subscribe.lua ProxyMaster` is valid for the installed Passwall2 version. Some versions may need another trigger.
+- [DONE] `update_nodes` reliability. (Added multi-path script detection for api.lua/node_subscribe.lua/subscribe.lua and aligned arguments with Passwall2 v26 subscribe_manual logic).
 
 ## Working Guidance
 

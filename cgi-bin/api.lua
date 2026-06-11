@@ -62,15 +62,13 @@ local function main_logic()
 
     elseif action == "proxy_login" then
         local post_data = get_post_data()
-        -- Log the received POST data for debugging
-        os.execute(string.format("logger -t ProxyMaster 'proxy_login received POST data: %s'", shell_escape(post_data)))
+        os.execute("logger -t ProxyMaster 'Attempting proxy login'")
 
         -- Added -c to save cookies and -H Accept to force JSON
         local curl_cmd_template = "curl -s -L -k -c %s -X POST '%s/api/v1/passport/auth/login' -H 'Content-Type: application/json' -H 'Accept: application/json' -A %s --data-binary @-"
         local full_curl_cmd = string.format(curl_cmd_template, COOKIE_FILE, DASHBOARD_URL, shell_escape(USER_AGENT))
         local cmd_to_execute = "echo " .. shell_escape(post_data) .. " | " .. full_curl_cmd
 
-        os.execute(string.format("logger -t ProxyMaster 'Executing proxy_login curl command: %s'", shell_escape(cmd_to_execute)))
 
         local pipe, err, code = io.popen(cmd_to_execute, "r")
 
@@ -80,7 +78,6 @@ local function main_logic()
         else
             local result = pipe:read("*a")
             pipe:close()
-            os.execute(string.format("logger -t ProxyMaster 'proxy_login curl response: %s'", shell_escape(result)))
             
             -- Attempt to parse result as JSON, if it fails, return a generic error
             local success, parsed_result = pcall(json.parse, result)
@@ -94,14 +91,11 @@ local function main_logic()
 
     elseif action == "proxy_info" then
         local token = params["token"]
-        -- Log the received token for debugging
-        os.execute(string.format("logger -t ProxyMaster 'proxy_info using token: %s'", shell_escape(token)))
+        os.execute("logger -t ProxyMaster 'Fetching proxy user info'")
 
         -- Dashboard info call. Using Authorization header is usually enough for V2board/Xboard
         local curl_cmd_template = "curl -s -L -k -H 'Authorization: %s' -H 'Accept: application/json' -A %s '%s/api/v1/user/info'"
         local full_curl_cmd = string.format(curl_cmd_template, token, shell_escape(USER_AGENT), DASHBOARD_URL)
-
-        os.execute(string.format("logger -t ProxyMaster 'Executing proxy_info curl command: %s'", shell_escape(full_curl_cmd)))
 
         local pipe, err, code = io.popen(full_curl_cmd, "r")
 
@@ -111,7 +105,6 @@ local function main_logic()
         else
             local result = pipe:read("*a")
             pipe:close()
-            os.execute(string.format("logger -t ProxyMaster 'proxy_info curl response: %s'", shell_escape(result)))
             
             -- Attempt to parse result as JSON, if it fails, return a generic error
             local success, parsed_result = pcall(json.parse, result)
@@ -127,10 +120,19 @@ local function main_logic()
         local link = params["link"]
         local token = params["token"]
         if link then
-            -- Create or update the specific 'ProxyMaster' section
-            uci:set("passwall2", "ProxyMaster", "subscribe_list")
+            -- Delete existing to ensure we start with a clean 'subscribe_list' type section
+            uci:delete("passwall2", "ProxyMaster")
+            
+            -- Create named section of type 'subscribe_list'
+            uci:section("passwall2", "subscribe_list", "ProxyMaster")
+            
             uci:set("passwall2", "ProxyMaster", "remark", "ProxyMaster")
             uci:set("passwall2", "ProxyMaster", "url", link)
+            -- Passwall2 26.x compatibility: set user_agent and template to ensure parsing
+            uci:set("passwall2", "ProxyMaster", "user_agent", "v2ray")
+            uci:set("passwall2", "ProxyMaster", "template", "v2ray")
+            -- Passwall2 requires the section to be enabled to process it during updates
+            uci:set("passwall2", "ProxyMaster", "enabled", "1")
             if token then
                 uci:set("passwall2", "ProxyMaster", "token", token)
             end
@@ -152,11 +154,50 @@ local function main_logic()
         end
 
     elseif action == "update_nodes" then
-        os.execute("logger -t ProxyMaster 'Triggering Passwall2 subscription update...'")
-        -- Execute subscription update. Some versions use subscribe.lua, others require app.lua -u
-        -- We will try the most common trigger for version 2
-        os.execute("lua /usr/share/passwall2/subscribe.lua ProxyMaster > /dev/null 2>&1 &")
-        print(json.stringify({ success = true }))
+        local link = uci:get("passwall2", "ProxyMaster", "url")
+        if not link or link == "" then
+            os.execute("logger -t ProxyMaster 'ERROR: Subscription URL missing in UCI.'")
+            print(json.stringify({ success = false, error = "Subscription URL not found in config." }))
+            return
+        end
+
+        -- Passwall2 versions vary in script naming. We check for the most common candidates.
+        local script_candidates = {
+            "/usr/share/passwall2/api.lua",           -- Modern unified API (v26.x)
+            "/usr/share/passwall2/node_subscribe.lua",-- Recent versions
+            "/usr/share/passwall2/subscribe.lua"      -- Older versions
+        }
+        
+        local found_script = nil
+        for _, path in ipairs(script_candidates) do
+            local f = io.open(path, "r")
+            if f then
+                f:close()
+                found_script = path
+                break
+            end
+        end
+
+        if found_script then
+            -- We use sh -c to properly background the process so it survives the CGI script exiting.
+            -- If the script is api.lua, it usually expects 'subscribe_manual' as the first arg.
+            local sub_args = found_script:match("api.lua$") and "subscribe_manual ProxyMaster" or "ProxyMaster"
+            local shell_cmd = string.format(
+                "cd /usr/share/passwall2 && export HOME=/root PATH=/usr/sbin:/usr/bin:/sbin:/bin; " ..
+                "lua %s %s %s manual 2>&1 | logger -t ProxyMaster-Sub",
+                found_script,
+                sub_args,
+                shell_escape(link)
+            )
+            local background_cmd = string.format("sh -c %s &", shell_escape(shell_cmd))
+            
+            os.execute(string.format("logger -t ProxyMaster 'Triggering: %s'", background_cmd))
+            os.execute(background_cmd)
+            print(json.stringify({ success = true }))
+        else
+            os.execute("logger -t ProxyMaster 'ERROR: No valid Passwall2 subscription script found.'")
+            print(json.stringify({ success = false, error = "Passwall2 subscription script not found." }))
+        end
 
     elseif action == "logout" then
         uci:delete("passwall2", "ProxyMaster")
