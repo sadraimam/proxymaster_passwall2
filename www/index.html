@@ -9,13 +9,14 @@
 <body>
     <div id="app">
         <h1>ProxyMaster</h1>
-        <div id="login-section">
+        <div id="login-section" class="login-section">
             <p class="subtitle">Enter your dashboard credentials</p>
             <div class="input-group">
                 <input type="text" id="email" placeholder="Email">
             </div>
-            <div class="input-group">
+            <div class="input-group password-container">
                 <input type="password" id="password" placeholder="Password">
+                <span class="toggle-password" onclick="togglePassword()">👁️‍🗨️</span>
             </div>
             <button class="primary-btn" onclick="login()">Login</button>
         </div>

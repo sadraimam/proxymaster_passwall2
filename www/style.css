@@ -29,7 +29,30 @@ body {
 h1 { margin-bottom: 28px; font-weight: 700; }
 .subtitle { color: var(--text-secondary); margin-bottom: 24px; font-size: 0.9rem; }
 
+.login-section {
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #334155;
+    width: 300px;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
 .input-group { margin-bottom: 12px; }
+
+.password-container {
+    position: relative;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
 input {
     width: 100%;
     padding: 12px;

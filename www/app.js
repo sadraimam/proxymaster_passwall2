@@ -259,3 +259,9 @@ async function updateNodes() {
         btn.disabled = false;
     }
 }
+
+function togglePassword() {
+    const passwordInput = document.getElementById('password');
+    if (!passwordInput) return;
+    passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+}
