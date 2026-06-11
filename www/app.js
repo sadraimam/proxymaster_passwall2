@@ -1,64 +1,127 @@
-const API_BASE_URL = "https://your-dashboard.com"; // CHANGE THIS
-const SYSTEM_MODE = "XBOARD"; // Options: "XBOARD", "V2BOARD"
+const SYSTEM_MODE = "V2BOARD"; // Options: "XBOARD", "V2BOARD"
+const DASHBOARD_DOMAIN = "https://pmaster.pro";
+
+// Initialize: Check if user is already "logged in" on the router
+window.onload = async function() {
+    console.log("Checking for existing ProxyMaster configuration...");
+    await updateStatus();
+};
 
 async function login() {
+    console.log("Login button clicked. Attempting proxy authentication...");
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
 
     try {
         // 1. Authenticate
-        const res = await axios.post(`${API_BASE_URL}/api/v1/passport/auth/login`, { email, password });
+        const res = await axios.post(`/cgi-bin/proxymaster-api?action=proxy_login`, { email, password });
+        console.log("Authentication response received:", res.status);
+        console.log("Login response data:", res.data);
         
+        // Check if login response has expected structure
+        if (!res.data || !res.data.data) {
+            throw new Error("Login response missing 'data' or 'data.data' field, or invalid JSON from proxy.");
+        }
+
         // Xboard uses auth_data, older V2board might use token or auth_data
         const token = SYSTEM_MODE === "XBOARD" 
             ? res.data.data.auth_data 
             : (res.data.data.token || res.data.data.auth_data);
 
-        // 2. Fetch User Info
-        const info = await axios.get(`${API_BASE_URL}/api/v1/user/info`, {
-            headers: { 'Authorization': token }
-        });
+        if (!token) {
+            throw new Error("Authentication token not found in login response.");
+        }
 
-        const subLink = info.data.data.subscribe_url;
-        
+        // Construct Sub Link (Bot Logic is reliable)
+        const subLink = `${DASHBOARD_DOMAIN}/api/v1/client/subscribe?token=${token}`;
+
         // 3. Push to OpenWrt Backend
-        await axios.get(`/cgi-bin/proxymaster-api?action=update_sub&link=${encodeURIComponent(subLink)}`);
+        console.log("Sending subscription link to router...");
+        await axios.get(`/cgi-bin/proxymaster-api?action=update_sub&token=${token}&link=${encodeURIComponent(subLink)}`);
         
-        // 4. Update UI
-        document.getElementById('login-section').style.display = 'none';
-        document.getElementById('stats').style.display = 'block';
-        document.getElementById('usage').innerText = ((info.data.data.u + info.data.data.d) / (1024**3)).toFixed(2);
-        
-        updateStatus();
+        // 4. Reload status and show dashboard
+        await updateStatus();
     } catch (e) {
-        console.error("Failed to sync with Xboard", e);
-        alert("Login failed. Check console.");
+        // Improved error logging
+        const errorDetail = e.response?.data?.message || e.message || "Unknown error";
+        console.error("Login Error:", {
+            status: e.response?.status,
+            data: e.response?.data,
+            config: e.config
+        });
+        alert(`Login failed: ${errorDetail}`);
     }
 }
 
 async function updateStatus() {
     try {
         const res = await axios.get('/cgi-bin/proxymaster-api?action=status');
-        const { enabled, running } = res.data;
+        const { enabled, running, config_exists, token } = res.data;
+        
+        if (config_exists) {
+            showDashboard();
+            fetchUsage(token);
+        }
+
         const statusText = document.getElementById('status-text');
         const toggleBtn = document.getElementById('toggle-btn');
 
-        if (enabled === "1") {
-            statusText.innerText = running ? "Active" : "Enabled (Starting...)";
-            statusText.className = "status-on";
-            toggleBtn.innerText = "Deactivate Passwall";
-        } else {
-            statusText.innerText = "Disabled";
-            statusText.className = "status-off";
-            toggleBtn.innerText = "Activate Passwall";
-        }
+        statusText.innerText = enabled === "1" ? (running ? "Active" : "Starting...") : "Disabled";
+        statusText.className = enabled === "1" ? "status-on" : "status-off";
+        toggleBtn.innerText = enabled === "1" ? "Deactivate Passwall" : "Activate Passwall";
+
     } catch (e) {
         console.error("Failed to fetch status", e);
         document.getElementById('status-text').innerText = "Error fetching status";
     }
 }
 
+function showDashboard() {
+    document.getElementById('login-section').style.display = 'none';
+    document.getElementById('stats').style.display = 'block';
+}
+
+async function fetchUsage(token) {
+    try {
+        const info = await axios.get(`/cgi-bin/proxymaster-api?action=proxy_info&token=${token}`);
+        if (info.data && info.data.data) {
+            const usage = ((info.data.data.u + info.data.data.d) / (1024**3)).toFixed(2);
+            document.getElementById('usage').innerText = usage;
+        }
+    } catch (e) {
+        console.warn("Could not refresh traffic stats.");
+    }
+}
+
 async function togglePasswall() {
     await axios.get('/cgi-bin/proxymaster-api?action=toggle');
     updateStatus();
+}
+
+async function logout() {
+    try {
+        await axios.get('/cgi-bin/proxymaster-api?action=logout');
+    } catch (e) {
+        console.error("Logout failed on server", e);
+    } finally {
+        location.reload();
+    }
+}
+
+async function updateNodes() {
+    const btn = document.getElementById('update-btn');
+    const originalText = btn.innerText;
+    btn.innerText = "Updating...";
+    btn.disabled = true;
+    
+    try {
+        await axios.get('/cgi-bin/proxymaster-api?action=update_nodes');
+        alert("Node update triggered. Nodes will appear in Passwall2 shortly.");
+    } catch (e) {
+        console.error("Failed to update nodes", e);
+        alert("Failed to trigger update.");
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
 }

@@ -15,7 +15,7 @@
             <div class="input-group">
                 <input type="password" id="password" placeholder="Password">
             </div>
-            <button onclick="login()">Login to Xboard</button>
+            <button onclick="login()">Login</button>
         </div>
 
         <div id="stats" style="display:none">
@@ -24,7 +24,8 @@
                 <p>Traffic Usage: <span id="usage">0</span> GB</p>
             </div>
             <button id="toggle-btn" onclick="togglePasswall()">Toggle Passwall</button>
-            <button class="secondary" onclick="location.reload()">Logout</button>
+            <button id="update-btn" class="secondary" onclick="updateNodes()">Update Nodes</button>
+            <button class="secondary" onclick="logout()">Logout</button>
         </div>
     </div>
     <script src="app.js"></script>
