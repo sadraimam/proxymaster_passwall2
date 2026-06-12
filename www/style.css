@@ -128,12 +128,45 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .card-info span { font-weight: 600; font-size: 0.9rem; }
 
 .usage-banner {
-    background: #334155;
-    padding: 12px;
-    border-radius: 8px;
+    background: var(--card-bg);
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid #334155;
     margin-bottom: 20px;
     font-size: 0.9rem;
+    text-align: center; /* Center the button */
 }
+
+.usage-details {
+    display: grid;
+    grid-template-columns: 1fr; /* Stack items on small screens */
+    gap: 8px;
+    margin-bottom: 12px;
+    text-align: left; /* Align text within items */
+}
+
+.usage-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.usage-item:last-child {
+    border-bottom: none;
+}
+
+.usage-item label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.usage-item strong {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
 
 .node-select-panel {
     background: var(--card-bg);

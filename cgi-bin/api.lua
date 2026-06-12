@@ -290,10 +290,10 @@ local function main_logic()
     elseif action == "proxy_info" then
         local token = params["token"]
         os.execute("logger -t ProxyMaster 'Fetching proxy user info'")
-
-        -- Dashboard info call. Using Authorization header is usually enough for V2board/Xboard
-        local curl_cmd_template = "curl -s -L -k -H 'Authorization: %s' -H 'Accept: application/json' -A %s '%s/api/v1/user/info'"
-        local full_curl_cmd = string.format(curl_cmd_template, shell_escape(token or ""), shell_escape(USER_AGENT), DASHBOARD_URL)
+        
+        -- V2Board/Xboard typically expects the raw JWT in the Authorization header.
+        local curl_cmd_template = "curl -s -L -k -b %s -H 'Authorization: %s' -H 'Accept: application/json' -A %s '%s/api/v1/user/getSubscribe'"
+        local full_curl_cmd = string.format(curl_cmd_template, COOKIE_FILE, shell_escape(token or ""), shell_escape(USER_AGENT), DASHBOARD_URL)
 
         local pipe, err, code = io.popen(full_curl_cmd, "r")
 

@@ -23,21 +23,25 @@ async function login() {
             throw new Error("Login response missing 'data' or 'data.data' field, or invalid JSON from proxy.");
         }
 
-        // Xboard uses auth_data, older V2board might use token or auth_data
-        const token = SYSTEM_MODE === "XBOARD" 
-            ? res.data.data.auth_data 
-            : (res.data.data.token || res.data.data.auth_data);
+        const loginData = res.data.data;
+        
+        // pmaster.pro (V2Board) provides two different tokens:
+        // 1. 'token': A short hash used for subscription URLs.
+        // 2. 'auth_data': A long JWT used for API authentication (user info).
+        const subToken = loginData.token || loginData.auth_data;
+        const apiToken = (loginData.auth_data && loginData.auth_data.startsWith("ey")) ? loginData.auth_data : subToken;
 
-        if (!token) {
+        if (!subToken) {
             throw new Error("Authentication token not found in login response.");
         }
 
-        // Construct Sub Link (Bot Logic is reliable)
-        const subLink = `${DASHBOARD_DOMAIN}/api/v1/client/subscribe?token=${token}`;
+        // Use the short token for the subscription link so Passwall2 can fetch nodes.
+        const subLink = `${DASHBOARD_DOMAIN}/api/v1/client/subscribe?token=${subToken}`;
 
         // 3. Push to OpenWrt Backend
+        // We store the apiToken (JWT) in UCI so fetchUsage() can continue to use it for headers.
         console.log("Sending subscription link to router...");
-        const updateRes = await axios.get(`/cgi-bin/proxymaster-api?action=update_sub&token=${encodeURIComponent(token)}&link=${encodeURIComponent(subLink)}`);
+        const updateRes = await axios.get(`/cgi-bin/proxymaster-api?action=update_sub&token=${encodeURIComponent(apiToken)}&link=${encodeURIComponent(subLink)}`);
         if (updateRes.data && updateRes.data.update_triggered === false) {
             throw new Error(updateRes.data.update_error || "Subscription saved, but Passwall2 update script was not found.");
         }
@@ -116,14 +120,50 @@ function showDashboard() {
 
 async function fetchUsage(token) {
     try {
+        // Ensure token is available before making the API call
+        if (!token) {
+            console.warn("No token available for fetching usage.");
+            document.getElementById('user-email').innerText = "N/A";
+            document.getElementById('used-traffic').innerText = "N/A";
+            document.getElementById('total-traffic').innerText = "N/A";
+            document.getElementById('remaining-traffic').innerText = "N/A";
+            return;
+        }
+
         const info = await axios.get(`/cgi-bin/proxymaster-api?action=proxy_info&token=${encodeURIComponent(token)}`);
         if (info.data && info.data.data) {
-            const usage = ((info.data.data.u + info.data.data.d) / (1024**3)).toFixed(2);
-            document.getElementById('usage').innerText = usage;
+            const userData = info.data.data;
+            
+            // V2board /user/getSubscribe uses 'u' and 'd'. /user/info might not.
+            const u = Number(userData.u || 0); 
+            const d = Number(userData.d || 0);
+            const transferEnable = userData.transfer_enable || 0; // Total allowed traffic in bytes
+            const email = userData.email || "N/A";
+
+            const usedTrafficBytes = u + d;
+            const remainingTrafficBytes = transferEnable > 0 ? (transferEnable - usedTrafficBytes) : 0;
+            
+            document.getElementById('user-email').innerText = email;
+            document.getElementById('used-traffic').innerText = convertBytesToGB(usedTrafficBytes);
+            document.getElementById('total-traffic').innerText = convertBytesToGB(transferEnable);
+            document.getElementById('remaining-traffic').innerText = convertBytesToGB(remainingTrafficBytes);
+        } else {
+            // If request succeeded but data structure is wrong (e.g. dashboard returns {message: "..."})
+            document.getElementById('user-email').innerText = info.data?.message || "Fetch Error";
+            console.error("Unexpected proxy_info response structure:", info.data);
         }
     } catch (e) {
-        console.warn("Could not refresh traffic stats.");
+        console.error("Could not refresh traffic stats.", e);
+        document.getElementById('user-email').innerText = "Error";
+        document.getElementById('used-traffic').innerText = "Error";
+        document.getElementById('total-traffic').innerText = "Error";
+        document.getElementById('remaining-traffic').innerText = "Error";
     }
+}
+
+function convertBytesToGB(bytes) {
+    if (bytes < 0) return "0.00 GB"; // Handle negative remaining traffic
+    return (bytes / (1024 ** 3)).toFixed(2) + ' GB';
 }
 
 async function togglePasswall() {
@@ -238,6 +278,15 @@ async function logout() {
     location.reload();
 }
 
+async function refreshUsage() {
+    const statusData = await updateStatus(); // Get current token
+    if (statusData && statusData.config_exists && statusData.token) {
+        fetchUsage(statusData.token);
+    } else {
+        console.warn("Cannot refresh usage: no active configuration or token.");
+        alert("Please log in to refresh usage data.");
+    }
+}
 async function updateNodes() {
     const btn = document.getElementById('update-btn');
     const originalText = btn.innerText;

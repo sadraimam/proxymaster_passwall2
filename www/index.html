@@ -12,7 +12,7 @@
         <div id="login-section" class="login-section">
             <p class="subtitle">Enter your dashboard credentials</p>
             <div class="input-group">
-                <input type="text" id="email" placeholder="Email">
+                <input type="text" id="email" placeholder="Email/Username">
             </div>
             <div class="input-group password-container">
                 <input type="password" id="password" placeholder="Password">
@@ -61,7 +61,21 @@
             </div>
 
             <div class="usage-banner">
-                Traffic Usage: <strong id="usage">0</strong> GB
+                <div class="usage-details">
+                    <div class="usage-item">
+                        <label>User Email:</label> <strong id="user-email">N/A</strong>
+                    </div>
+                    <div class="usage-item">
+                        <label>Used Traffic:</label> <strong id="used-traffic">0.00 GB</strong>
+                    </div>
+                    <div class="usage-item">
+                        <label>Total Traffic:</label> <strong id="total-traffic">0.00 GB</strong>
+                    </div>
+                    <div class="usage-item">
+                        <label>Remaining Traffic:</label> <strong id="remaining-traffic">0.00 GB</strong>
+                    </div>
+                </div>
+                <button class="secondary" onclick="refreshUsage()">Refresh Usage</button>
             </div>
 
             <div class="node-select-panel">
