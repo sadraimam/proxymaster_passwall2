@@ -129,32 +129,62 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .usage-banner {
     background: var(--card-bg);
-    padding: 16px;
+    padding: 14px;
     border-radius: 12px;
     border: 1px solid #334155;
     margin-bottom: 20px;
     font-size: 0.9rem;
-    text-align: center; /* Center the button */
+    text-align: left;
 }
 
-.usage-details {
-    display: grid;
-    grid-template-columns: 1fr; /* Stack items on small screens */
-    gap: 8px;
-    margin-bottom: 12px;
-    text-align: left; /* Align text within items */
-}
-
-.usage-item {
+.usage-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 4px 0;
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+    margin-bottom: 12px;
 }
 
-.usage-item:last-child {
-    border-bottom: none;
+#plan-name {
+    background: var(--accent);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.compact-refresh {
+    width: auto !important;
+    padding: 4px 10px !important;
+    font-size: 0.75rem !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: 1px solid #334155 !important;
+    color: var(--text-secondary);
+}
+
+/* Progress Bar Styles */
+.progress-container {
+    background: #0f172a;
+    border-radius: 10px;
+    height: 6px;
+    margin: 10px 0;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.5s ease;
+}
+
+.usage-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 0.8rem;
 }
 
 .usage-item label {

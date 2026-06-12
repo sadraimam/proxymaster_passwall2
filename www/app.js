@@ -133,20 +133,36 @@ async function fetchUsage(token) {
         const info = await axios.get(`/cgi-bin/proxymaster-api?action=proxy_info&token=${encodeURIComponent(token)}`);
         if (info.data && info.data.data) {
             const userData = info.data.data;
-            
-            // V2board /user/getSubscribe uses 'u' and 'd'. /user/info might not.
             const u = Number(userData.u || 0); 
             const d = Number(userData.d || 0);
-            const transferEnable = userData.transfer_enable || 0; // Total allowed traffic in bytes
+            const transferEnable = userData.transfer_enable || 0;
             const email = userData.email || "N/A";
+            const planName = userData.plan?.name || "Basic Plan";
 
             const usedTrafficBytes = u + d;
             const remainingTrafficBytes = transferEnable > 0 ? (transferEnable - usedTrafficBytes) : 0;
             
+            // Calculate Percentage
+            const percent = transferEnable > 0 ? Math.min(100, Math.round((usedTrafficBytes / transferEnable) * 100)) : 0;
+
+            // Calculate Days Remaining
+            let expiryText = "Never";
+            if (userData.expired_at) {
+                const days = Math.ceil((userData.expired_at * 1000 - Date.now()) / (1000 * 60 * 60 * 24));
+                expiryText = days > 0 ? `${days} Days` : "Expired";
+            }
+
             document.getElementById('user-email').innerText = email;
+            document.getElementById('plan-name').innerText = planName;
+            document.getElementById('days-remaining').innerText = expiryText;
             document.getElementById('used-traffic').innerText = convertBytesToGB(usedTrafficBytes);
             document.getElementById('total-traffic').innerText = convertBytesToGB(transferEnable);
             document.getElementById('remaining-traffic').innerText = convertBytesToGB(remainingTrafficBytes);
+
+            // Update Progress Bar
+            const progressBar = document.getElementById('usage-progress-bar');
+            if (progressBar) progressBar.style.width = `${percent}%`;
+
         } else {
             // If request succeeded but data structure is wrong (e.g. dashboard returns {message: "..."})
             document.getElementById('user-email').innerText = info.data?.message || "Fetch Error";

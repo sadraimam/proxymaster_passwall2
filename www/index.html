@@ -61,21 +61,30 @@
             </div>
 
             <div class="usage-banner">
+                <div class="usage-header">
+                    <span id="plan-name">Loading...</span>
+                    <button onclick="refreshUsage()" class="compact-refresh">Refresh</button>
+                </div>
+
+                <div style="font-size: 0.85rem; margin-bottom: 4px;">
+                    <strong id="user-email">...</strong>
+                </div>
+
+                <div class="progress-container">
+                    <div id="usage-progress-bar" class="progress-bar"></div>
+                </div>
+
                 <div class="usage-details">
                     <div class="usage-item">
-                        <label>User Email:</label> <strong id="user-email">N/A</strong>
+                        <label>Used:</label> <strong id="used-traffic">0 GB</strong>
                     </div>
                     <div class="usage-item">
-                        <label>Used Traffic:</label> <strong id="used-traffic">0.00 GB</strong>
+                        <label>Remaining:</label> <strong id="remaining-traffic">0 GB</strong> (<span id="total-traffic">0 GB</span>)
                     </div>
                     <div class="usage-item">
-                        <label>Total Traffic:</label> <strong id="total-traffic">0.00 GB</strong>
-                    </div>
-                    <div class="usage-item">
-                        <label>Remaining Traffic:</label> <strong id="remaining-traffic">0.00 GB</strong>
+                        <label>Expires:</label> <strong id="days-remaining">...</strong>
                     </div>
                 </div>
-                <button class="secondary" onclick="refreshUsage()">Refresh Usage</button>
             </div>
 
             <div class="node-select-panel">
