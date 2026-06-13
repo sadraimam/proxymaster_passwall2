@@ -48,6 +48,10 @@ The Lua backend routes based on the `action` query parameter:
   - Checks if proxy-related processes are running with `pgrep -f 'sing-box|xray|v2ray|base_tcp'`.
   - Returns `enabled`, `running`, `config_exists`, and `token`.
 
+- `connect_check`
+  - Accepts `url` as a query parameter.
+  - Measures connection latency to the target using `curl` and returns `use_time` in milliseconds.
+
 - `toggle`
   - Flips `passwall2.@global[0].enabled`.
   - Commits UCI changes.
@@ -56,11 +60,13 @@ The Lua backend routes based on the `action` query parameter:
 - `proxy_login`
   - Reads the JSON POST body from the browser.
   - Forwards it to `https://pmaster.pro/api/v1/passport/auth/login`.
+  - Saves session cookies to `/tmp/pm_cookies.txt`.
   - Returns the dashboard response if it parses as JSON.
 
 - `proxy_info`
   - Accepts `token` as a query parameter.
-  - Calls `https://pmaster.pro/api/v1/user/info` with an `Authorization` header.
+  - Calls `https://pmaster.pro/api/v1/user/getSubscribe` with an `Authorization` header.
+  - Loads session cookies from `/tmp/pm_cookies.txt`.
   - Returns the dashboard response if it parses as JSON.
 
 - `update_sub`
@@ -82,6 +88,15 @@ The Lua backend routes based on the `action` query parameter:
     - `/usr/share/passwall2/subscribe.lua start ProxyMaster`
   - `subscribe.lua` requires `start` as the first argument; `lua subscribe.lua ProxyMaster` does not enter the update path on observed builds.
 
+- `list_nodes`
+  - Returns proxy nodes parsed from the `ProxyMaster` group.
+  - Returns the currently selected `default_node` from the active shunt node.
+
+- `set_shunt_node`
+  - Accepts `node` as a query parameter.
+  - Updates the `default_node` of the shunt node in Passwall2's UCI config to the selected node.
+  - Commits the config and restarts Passwall2.
+
 - `logout`
   - Runs `lua /usr/share/passwall2/subscribe.lua truncate ProxyMaster` when available.
   - Deletes remaining `nodes` sections where `group='ProxyMaster'` or `add_from='ProxyMaster'`.
@@ -102,6 +117,7 @@ The Lua backend routes based on the `action` query parameter:
 5. It sends that link and token to `update_sub`.
 6. The backend saves the subscription and starts the Passwall2 subscription import.
 7. If config exists, the UI shows the dashboard and fetches usage via `proxy_info`.
+8. The UI retrieves the node list (`list_nodes`) and allows the user to perform connectivity checks (`connect_check`) or select an active node (`set_shunt_node`).
 
 ## Observed Passwall2 UCI Details
 
@@ -130,19 +146,18 @@ The target is OpenWrt with:
 
 `install.sh` currently:
 
+- Updates OpenWrt package lists (`opkg update`) and installs `lua`, `curl`, and `luci-lib-jsonc`.
 - Creates `/www/proxymaster` and `/www/cgi-bin`.
-- Copies `www/*` to `/www/proxymaster/`.
-- Copies `cgi-bin/api.lua` to `/www/cgi-bin/proxymaster-api`.
+- Downloads `index.html`, `app.js`, `style.css`, and `api.lua` directly from the main branch on GitHub using `curl`.
 - Converts CRLF to LF for the CGI script.
 - Makes the CGI script executable.
-- Installs `lua`, `curl`, and `luci-lib-jsonc`.
 
 ## Known Risks and Cleanup Targets
 
 - The backend currently logs sensitive values, including login POST data, tokens, curl commands, and dashboard responses. Remove or redact this before production use.
-- `install.sh` sets `/etc/config/passwall2` to mode `666`, making it world-writable. Prefer a safer permission/ownership model.
 - Shell commands are assembled as strings and executed with `os.execute`/`io.popen`. Keep inputs escaped and avoid adding untrusted parameters to shell commands.
 - Tokens are passed in query strings, which can appear in browser history, server logs, router logs, and referrers.
+- Session cookies are written to `/tmp/pm_cookies.txt`, which persists between requests.
 - `curl -k` disables TLS certificate verification for dashboard calls.
 - `proxy_info` uses `Authorization: <token>` directly. Confirm whether the target dashboard expects a prefix such as `Bearer` for all supported systems.
 
