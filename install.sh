@@ -1,17 +1,23 @@
-#!/bin/bash
-IP="192.168.11.1" # Change to your OpenWrt IP
+#!/bin/sh
 
-# Create directories
-ssh root@$IP "mkdir -p /www/proxymaster /www/cgi-bin"
+REPO_URL="https://raw.githubusercontent.com/sadraimam/proxymaster_passwall2/main"
 
-# Copy files
-scp www/* root@$IP:/www/proxymaster/
-scp cgi-bin/api.lua root@$IP:/www/cgi-bin/proxymaster-api
+echo "Updating package lists and installing dependencies..."
+opkg update
+opkg install lua curl luci-lib-jsonc
 
-# Fix line endings (CRLF to LF) and set permissions
-ssh root@$IP "sed -i 's/\r$//' /www/cgi-bin/proxymaster-api && chmod +x /www/cgi-bin/proxymaster-api"
+echo "Creating directories..."
+mkdir -p /www/proxymaster /www/cgi-bin
 
-# Ensure dependencies are installed
-ssh root@$IP "opkg update && opkg install lua curl luci-lib-jsonc"
+echo "Downloading files from GitHub..."
+curl -sL "$REPO_URL/www/index.html" -o /www/proxymaster/index.html
+curl -sL "$REPO_URL/www/app.js" -o /www/proxymaster/app.js
+curl -sL "$REPO_URL/www/style.css" -o /www/proxymaster/style.css
+curl -sL "$REPO_URL/cgi-bin/api.lua" -o /www/cgi-bin/proxymaster-api
 
-echo "Deployed. Visit http://openwrt.lan/proxymaster"
+echo "Setting permissions and fixing line endings..."
+sed -i 's/\r$//' /www/cgi-bin/proxymaster-api
+chmod +x /www/cgi-bin/proxymaster-api
+
+ROUTER_IP=$(uci get network.lan.ipaddr 2>/dev/null || echo 'openwrt.lan')
+echo "Installation complete! Visit http://$ROUTER_IP/proxymaster"
