@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ProxyMaster.Pro</title>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <link rel="stylesheet" href="style.css">
@@ -66,8 +67,11 @@
                     <button onclick="refreshUsage()" class="compact-refresh">Refresh</button>
                 </div>
 
-                <div style="font-size: 0.85rem; margin-bottom: 4px;">
+                <div class="user-info-row">
                     <strong id="user-email">...</strong>
+                    <div class="expires-detail">
+                        <label>Expires:</label> <strong id="days-remaining">...</strong>
+                    </div>
                 </div>
 
                 <div class="progress-container">
@@ -80,9 +84,6 @@
                     </div>
                     <div class="usage-item">
                         <label>Remaining:</label> <strong id="remaining-traffic">0 GB</strong> (<span id="total-traffic">0 GB</span>)
-                    </div>
-                    <div class="usage-item">
-                        <label>Expires:</label> <strong id="days-remaining">...</strong>
                     </div>
                 </div>
             </div>
