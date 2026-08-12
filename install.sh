@@ -2,9 +2,19 @@
 
 REPO_URL="https://raw.githubusercontent.com/sadraimam/proxymaster_passwall2/main"
 
-echo "Updating package lists and installing dependencies..."
-opkg update
-opkg install lua curl luci-lib-jsonc
+echo "Detecting package manager and installing dependencies..."
+if command -v apk >/dev/null 2>&1; then
+    echo "Using apk package manager..."
+    apk update
+    apk add lua curl luci-lib-jsonc
+elif command -v opkg >/dev/null 2>&1; then
+    echo "Using opkg package manager..."
+    opkg update
+    opkg install lua curl luci-lib-jsonc
+else
+    echo "Error: Neither apk nor opkg package manager was found on this system." >&2
+    exit 1
+fi
 
 echo "Creating directories..."
 mkdir -p /www/proxymaster /www/cgi-bin
