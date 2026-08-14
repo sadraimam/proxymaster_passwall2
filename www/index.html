@@ -97,10 +97,15 @@
                     <button id="set-node-btn" class="icon-btn primary-btn" onclick="selectNode()" title="Set Node">Set</button>
                     <button id="update-btn" class="icon-btn secondary" onclick="updateNodes()" title="Update Nodes">Sync</button>
                 </div>
-                <button id="toggle-btn" onclick="togglePasswall()">Toggle Passwall</button>
+                <button id="toggle-btn" class="btn-success" onclick="togglePasswall()">Toggle Passwall</button>
             </div>
 
-            <button class="secondary" onclick="logout()">Logout</button>
+            <div class="action-row">
+                <button class="secondary" onclick="window.open('https://proxymaster.pro/#/dashboard', '_blank')">Dashboard</button>
+                <button class="secondary" onclick="window.open('https://t.me/Pmasterpro_bot', '_blank')">Telegram</button>
+                <button class="secondary" onclick="logout()">Logout</button>
+            </div>
+
         </div>
     </div>
     <script src="app.js"></script>

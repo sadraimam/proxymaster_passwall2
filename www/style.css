@@ -145,6 +145,35 @@ button:active {
     background: #475569;
 }
 
+.btn-success {
+    background: var(--success);
+    color: #ffffff;
+}
+
+.btn-success:hover {
+    background: #059669;
+}
+
+.btn-danger {
+    background: var(--danger);
+    color: #ffffff;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+}
+
+.action-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.action-row button {
+    margin-bottom: 0;
+    flex: 1;
+}
+
 button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -435,6 +464,10 @@ button:disabled {
     }
     
     .control-row {
+        gap: 6px;
+    }
+    
+    .action-row {
         gap: 6px;
     }
     

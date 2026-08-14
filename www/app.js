@@ -78,7 +78,7 @@ async function updateStatus(isPolling = false) {
         statusText.innerText = enabled === "1" ? (running ? "Running" : "Starting...") : "Stopped";
         statusText.className = enabled === "1" ? "status-on" : "status-off";
         toggleBtn.innerText = enabled === "1" ? "Deactivate Passwall" : "Activate Passwall";
-        toggleBtn.className = enabled === "1" ? "secondary" : "primary-btn";
+        toggleBtn.className = enabled === "1" ? "btn-danger" : "btn-success";
         return res.data;
     } catch (e) {
         console.error("Failed to fetch status", e);
