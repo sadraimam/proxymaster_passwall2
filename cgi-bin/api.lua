@@ -306,8 +306,25 @@ local function main_logic()
             
             -- Attempt to parse result as JSON, if it fails, return a generic error
             local success, parsed_result = pcall(json.parse, result)
-            if success and type(parsed_result) == "table" then
-                print(result) -- Print the original result if it's valid JSON
+            if success and type(parsed_result) == "table" and parsed_result.data then
+                -- Query /api/v1/user/info to get telegram_id and profile data if available
+                local info_cmd_template = "curl -s -L -k -b %s -H 'Authorization: %s' -H 'Accept: application/json' -A %s '%s/api/v1/user/info'"
+                local full_info_cmd = string.format(info_cmd_template, COOKIE_FILE, shell_escape(token or ""), shell_escape(USER_AGENT), DASHBOARD_URL)
+                local info_pipe = io.popen(full_info_cmd, "r")
+                if info_pipe then
+                    local info_result = info_pipe:read("*a")
+                    info_pipe:close()
+                    local success_info, parsed_info = pcall(json.parse, info_result)
+                    if success_info and type(parsed_info) == "table" and parsed_info.data then
+                        if parsed_info.data.telegram_id ~= nil then
+                            parsed_result.data.telegram_id = parsed_info.data.telegram_id
+                        end
+                    end
+                end
+
+                print(json.stringify(parsed_result))
+            elseif success and type(parsed_result) == "table" then
+                print(json.stringify(parsed_result))
             else
                 os.execute(string.format("logger -t ProxyMaster 'WARNING: proxy_info curl returned non-JSON or empty response: %s'", shell_escape(result)))
                 print(json.stringify({ error = "Dashboard user info response was not valid JSON or empty.", raw_response = result }))

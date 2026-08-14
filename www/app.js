@@ -119,6 +119,7 @@ function showDashboard() {
 }
 
 async function fetchUsage(token) {
+    const tgIcon = document.getElementById('telegram-user-icon');
     try {
         // Ensure token is available before making the API call
         if (!token) {
@@ -127,6 +128,7 @@ async function fetchUsage(token) {
             document.getElementById('used-traffic').innerText = "N/A";
             document.getElementById('total-traffic').innerText = "N/A";
             document.getElementById('remaining-traffic').innerText = "N/A";
+            if (tgIcon) tgIcon.style.display = 'none';
             return;
         }
 
@@ -138,6 +140,7 @@ async function fetchUsage(token) {
             const transferEnable = userData.transfer_enable || 0;
             const email = userData.email || "N/A";
             const planName = userData.plan?.name || "Basic Plan";
+            const telegramId = userData.telegram_id;
 
             const usedTrafficBytes = u + d;
             const remainingTrafficBytes = transferEnable > 0 ? (transferEnable - usedTrafficBytes) : 0;
@@ -159,6 +162,17 @@ async function fetchUsage(token) {
             document.getElementById('total-traffic').innerText = convertBytesToGB(transferEnable);
             document.getElementById('remaining-traffic').innerText = convertBytesToGB(remainingTrafficBytes);
 
+            // Display Telegram Icon if Telegram ID is linked
+            if (tgIcon) {
+                if (telegramId && telegramId !== "0" && telegramId !== 0 && telegramId !== "") {
+                    tgIcon.style.display = 'inline-flex';
+                    tgIcon.title = `Telegram Linked (ID: ${telegramId})`;
+                    tgIcon.setAttribute('aria-label', `Telegram ID: ${telegramId}`);
+                } else {
+                    tgIcon.style.display = 'none';
+                }
+            }
+
             // Update Progress Bar
             const progressBar = document.getElementById('usage-progress-bar');
             if (progressBar) progressBar.style.width = `${percent}%`;
@@ -166,6 +180,7 @@ async function fetchUsage(token) {
         } else {
             // If request succeeded but data structure is wrong (e.g. dashboard returns {message: "..."})
             document.getElementById('user-email').innerText = info.data?.message || "Fetch Error";
+            if (tgIcon) tgIcon.style.display = 'none';
             console.error("Unexpected proxy_info response structure:", info.data);
         }
     } catch (e) {
@@ -174,6 +189,7 @@ async function fetchUsage(token) {
         document.getElementById('used-traffic').innerText = "Error";
         document.getElementById('total-traffic').innerText = "Error";
         document.getElementById('remaining-traffic').innerText = "Error";
+        if (tgIcon) tgIcon.style.display = 'none';
     }
 }
 

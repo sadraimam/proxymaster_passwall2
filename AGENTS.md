@@ -65,9 +65,9 @@ The Lua backend routes based on the `action` query parameter:
 
 - `proxy_info`
   - Accepts `token` as a query parameter.
-  - Calls `https://pmaster.pro/api/v1/user/getSubscribe` with an `Authorization` header.
-  - Loads session cookies from `/tmp/pm_cookies.txt`.
-  - Returns the dashboard response if it parses as JSON.
+  - Calls `https://pmaster.pro/api/v1/user/getSubscribe` with an `Authorization` header and session cookies.
+  - Queries `https://pmaster.pro/api/v1/user/info` to fetch user profile details (including `telegram_id`).
+  - Returns the merged dashboard response if it parses as JSON.
 
 - `update_sub`
   - Accepts `link` and optional `token` query parameters.

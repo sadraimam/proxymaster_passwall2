@@ -312,6 +312,15 @@ button:disabled {
     min-width: 0;
 }
 
+.user-email-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+    text-align: left;
+}
+
 #user-email {
     font-size: 0.95rem;
     font-weight: 600;
@@ -320,8 +329,25 @@ button:disabled {
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
-    flex: 1;
-    text-align: left;
+}
+
+.telegram-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #229ed9;
+    flex-shrink: 0;
+    transition: transform 0.2s ease, color 0.2s ease;
+    cursor: pointer;
+}
+
+.telegram-badge:hover {
+    color: #38bdf8;
+    transform: scale(1.15);
+}
+
+.telegram-badge svg {
+    display: block;
 }
 
 .expires-detail {
