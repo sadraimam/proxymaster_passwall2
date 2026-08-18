@@ -78,6 +78,7 @@ uci set passwall2.rulenode.write_ipset_direct='1'
 uci set passwall2.rulenode.enable_geoview_ip='1'
 uci set passwall2.rulenode.Iran='_direct'
 uci set passwall2.rulenode.PrivateIP='_direct'
+uci set passwall2.rulenode.shunt_group='IR'
 
 # 6. Commit changes to /etc/config/passwall2
 uci commit passwall2
