@@ -83,6 +83,20 @@ uci set passwall2.rulenode.shunt_group='IR'
 # 6. Commit changes to /etc/config/passwall2
 uci commit passwall2
 
+# 7. Manually update Passwall2 rules
+echo "Updating Passwall2 rules..."
+if [ -f /usr/share/passwall2/api.lua ]; then
+    lua /usr/share/passwall2/api.lua rule_update
+elif [ -f /usr/share/passwall2/rule_update.lua ]; then
+    lua /usr/share/passwall2/rule_update.lua
+elif [ -f /usr/share/passwall2/rule_update.sh ]; then
+    /usr/share/passwall2/rule_update.sh
+elif [ -f /usr/share/passwall2/rules.sh ]; then
+    /usr/share/passwall2/rules.sh
+else
+    echo "Warning: Passwall2 rule update script not found."
+fi
+
 ROUTER_IP=$(uci get network.lan.ipaddr 2>/dev/null | cut -d'/' -f1)
 [ -z "$ROUTER_IP" ] && ROUTER_IP="192.168.1.1"
 
